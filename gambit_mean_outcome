@@ -1,11 +1,11 @@
 import pygambit
 import os
-import numpy
 
-os.chdir("your_directory_here")
+os.chdir("G:\\My Drive\\R\\ON Research Projects\\gambit_mean_outcome")
 
 #Import the game
-g = pygambit.Game.read_game("poker.gbt")
+g = pygambit.Game.read_game("poker.gbt") #works with this
+#g = pygambit.Game.read_game("pg_equilibrium_mean_outcome_test_game_1.gbt")
 
 #Load solver
 solver = pygambit.nash.ExternalLogitSolver()
@@ -13,108 +13,9 @@ solver = pygambit.nash.ExternalLogitSolver()
 #Get solution
 solution = solver.solve(g)
 
-#Examine solution
-solution
+#Extract a mixed strategy profile
+msp = solution[0].as_strategy()
 
-#------------------------------------------------------------------------------------------------
-#Matching strategy probabilities to nodes to calculate path probabilities
-#------------------------------------------------------------------------------------------------
-
-#------------------------------------------------------------------------------------------------
-#Building dictionaries
-#------------------------------------------------------------------------------------------------
-
-#The goal here is to create three, interlocking dictionaries
-#Dictionary 1: terminal nodes and the path of all nodes to get there
-#Dictioanry 2: nodes and their corresponding strategies
-#Dictionary 3: strategies and their corresponding probabilities
-
-#Diciontary 1: terminal node and path key value
-
-#Step 1: Gather terminal nodes
-def gather_terminal_nodes_set(node):
-    if not node.children:
-        return [node]
-    terminal_nodes_set = []
-    for child in node.children:
-        terminal_nodes_set.extend(gather_terminal_nodes_set(child))
-    return terminal_nodes_set
-
-#Gather all terminal nodes into a set
-terminal_nodes_set = gather_terminal_nodes_set(g.root)
-
-#Create empty path to 
-terminal_nodes_dct = {i: [] for i in terminal_nodes_set}
-
-#Step 2: get path
-def get_path_of_terminal_node(terminal_node, nature_dct_path=None):
-    if nature_dct_path is None:
-        nature_dct_path = {
-            g.root.children[0]: [float(g.players.chance.infosets[0].actions[0].prob)],
-            g.root.children[1]: [float(g.players.chance.infosets[0].actions[1].prob)]
-        }
-
-    def build_path(node, current_path):
-        if node.parent is None:
-            return current_path
-        elif node.parent in nature_dct_path:
-            current_path.extend(nature_dct_path[node.parent])
-            return current_path
-        else:
-            current_path.append(node.parent)
-            return build_path(node.parent, current_path)
-
-    path = [terminal_node]
-    return build_path(terminal_node, path)
-
-#Finally, dictionary with path
-terminal_nodes_dct = {terminal_node: get_path_of_terminal_node(terminal_node) for terminal_node in terminal_nodes_set}
-
-#Dictionary 2: node strategy key value
-member_cardinality_set = [len(infoset.members) for player in g.players for infoset in player.infosets]
-all_members = [member for player in g.players for infoset in player.infosets for member in infoset.members]
-all_members_children = [child for member in all_members for child in member.children]
-all_strategies_set = [strategy for player in g.players for strategy in player.strategies]
-repeated_strategies_set = []
-for i in range(0, len(all_strategies_set), 2):
-    pair = all_strategies_set[i:i+2]
-    repeat_count = member_cardinality_set[i//2]
-    repeated_strategies_set.extend(pair * repeat_count)
-node_strategy_dct = dict(zip(all_members_children, repeated_strategies_set))
-
-#Dictionary 3: strategies probability dictionary
-solution_extracted_values = [i for i in solution[0]]
-strategies_prob_dct = {i:j for i, j in zip(all_strategies_set, solution_extracted_values)}
-
-#------------------------------------------------------------------------------------------------
-#Calculating credible node expected utilities, expected utility of entire game per player
-#------------------------------------------------------------------------------------------------
-
-def get_probability(node_path):
-    probability_list = []
-    for node in node_path:
-        if isinstance(node, float):
-            probability_list.append(node)
-        else:
-            strategy = node_strategy_dct[node]
-            prob = strategies_prob_dct[strategy]
-            probability_list.append(prob)
-    return probability_list
-
-def game_average_outcome(terminal_nodes_dct, player):
-    eu_terminal_node = []
-    if player == 1:
-        for key, value in terminal_nodes_dct.items():
-            utility = key.outcome.__getitem__(0)
-            probability = numpy.prod(get_probability(terminal_nodes_dct[key]))
-            eu_terminal_node.append(utility*probability)
-    if player == 2:
-        for key, value in terminal_nodes_dct.items():
-            utility = key.outcome.__getitem__(1)
-            probability = numpy.prod(get_probability(terminal_nodes_dct[key]))
-            eu_terminal_node.append(utility*probability)
-    return sum(eu_terminal_node)
-    #return eu_terminal_node
-
-game_average_outcome(terminal_nodes_dct, 1) #.33, as expected
-game_average_outcome(terminal_nodes_dct, 2) #-.33, as expected
+#Get the payoff of each mixed strategy profile by player
+msp.payoff(g.players[0])
+msp.payoff(g.players[1])
