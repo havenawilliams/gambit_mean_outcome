@@ -4,8 +4,7 @@ import os
 os.chdir("G:\\My Drive\\R\\ON Research Projects\\gambit_mean_outcome")
 
 #Import the game
-g = pygambit.Game.read_game("poker.gbt") #works with this
-#g = pygambit.Game.read_game("pg_equilibrium_mean_outcome_test_game_1.gbt")
+g = pygambit.Game.read_game("poker.gbt")
 
 #Load solver
 solver = pygambit.nash.ExternalLogitSolver()
